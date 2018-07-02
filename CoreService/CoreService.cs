@@ -1,5 +1,7 @@
-﻿using FabricWcf.DependencyInjection;
-using FabricWcf.ServiceContracts;
+﻿using CoreService.Helpers;
+using FabricWcf.DependencyInjection;
+using FabricWCF.Common;
+using Microsoft.ServiceFabric.Data.Collections;
 using Microsoft.ServiceFabric.Services.Communication.Runtime;
 using Microsoft.ServiceFabric.Services.Communication.Wcf.Runtime;
 using Ninject;
@@ -8,6 +10,7 @@ using System.Collections.Generic;
 using System.Fabric;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using System.ServiceModel;
 using System.ServiceModel.Description;
 using System.Threading;
@@ -18,53 +21,94 @@ namespace CoreService
     /// <summary>
     /// An instance of this class is created for each service instance by the Service Fabric runtime.
     /// </summary>
-    internal sealed class CoreService : NInjectStatelessService
+    internal sealed class CoreService : NInjectFabricService
     {
-        public CoreService(StatelessServiceContext context)
+        public CoreService(StatefulServiceContext context)
             : base(context)
         {
+            ServiceUtility.StateManager = this.StateManager;
         }
 
-        protected override IEnumerable<ServiceInstanceListener> CreateServiceInstanceListeners()
+        protected override IEnumerable<ServiceReplicaListener> CreateServiceReplicaListeners()
         {
-            yield return CreateInstanceListener<IClientService>();
-            yield return CreateInstanceListener<IPassengerService>();
-            yield return CreateInstanceListener<INewsService>();
+            yield return CreateListener<ISetupService>();
+            yield return CreateListener<INewsService>();
         }
 
-        private ServiceInstanceListener CreateInstanceListener<T>()
+        protected override async Task RunAsync(CancellationToken cancellationToken)
         {
-            var contractName = typeof(T).CustomAttributes.First().NamedArguments.First(a => a.MemberName == "Name").TypedValue.Value;
+            var myDictionary = await this.StateManager.GetOrAddAsync<IReliableDictionary<string, long>>("myDictionary");
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                using (var tx = this.StateManager.CreateTransaction())
+                {
+                    var result = await myDictionary.TryGetValueAsync(tx, "Counter");
+                    var counter = await myDictionary.AddOrUpdateAsync(tx, "Counter", 1, (key, value) => ++value);
+                    ServiceEventSource.Current.ServiceMessage(this.Context, "Working: {0}", counter);
+
+                    await tx.CommitAsync();
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken);
+            }
+        }
+
+        private ServiceReplicaListener CreateListener<T>()
+        {
+            var contractName = typeof(T).GetCustomAttribute<ServiceContractAttribute>().Name;
             var instance = IoC.Kernel.Get<T>();
-            return new ServiceInstanceListener(context => CreateListener(context, instance, contractName as string), instance.GetType().Name);
+            return new ServiceReplicaListener(context => CreateListenerOfType(context, instance, contractName as string),  contractName as string);
         }
 
-        private WcfCommunicationListener<T> CreateListener<T>(ServiceContext context, T serviceInstance, string rootDir)
+        private WcfCommunicationListener<T> CreateListenerOfType<T>(ServiceContext context, T serviceInstance, string rootDir)
         {
             var binding = new WebHttpBinding("webHttpBinding"); //defined in App.config
+            var endpoint = context.CodePackageActivationContext.GetEndpoint("ServiceEndpoint");
 
             string host = context.NodeContext.IPAddressOrFQDN;
-            var serviceUri = string.Format(CultureInfo.InvariantCulture, "{0}://{1}:{2}/{3}/", "http", host, 8001, rootDir);
+            var serviceUri = string.Format(CultureInfo.InvariantCulture, "{0}://{1}:{2}/{3}/", endpoint.Protocol, host, endpoint.Port, rootDir);
             var address = new EndpointAddress(serviceUri);
 
-            var listener = new WcfCommunicationListener<T>(context, serviceInstance, binding, address);
-            
+            var listener = new WcfCommunicationListener<T>(context, serviceInstance, binding, address); //"ServiceEndpoint");
+
             var endPoint = listener.ServiceHost.Description.Endpoints.Last();
             endPoint.EndpointBehaviors.Add(new WebHttpBehavior());
 
             return listener;
         }
 
-        protected override async Task RunAsync(CancellationToken cancellationToken)
+        private ServiceReplicaListener CreateSoapListener<T>()
         {
-            long iterations = 0;
+            var contractName = typeof(T).GetCustomAttribute<ServiceContractAttribute>().Name;
+            var instance = IoC.Kernel.Get<T>();
+            return new ServiceReplicaListener(context => CreateSoapListener(context, instance, contractName as string), contractName as string);
+        }
 
-            while (true)
+        private WcfCommunicationListener<T> CreateSoapListener<T>(ServiceContext context, T serviceInstance, string rootDir)
+        {
+            var binding = new BasicHttpBinding("basicHttpBinding");
+            var endpoint = context.CodePackageActivationContext.GetEndpoint("ServiceEndpoint");
+
+            string host = context.NodeContext.IPAddressOrFQDN;
+            var serviceUri = string.Format(CultureInfo.InvariantCulture, "{0}://{1}:{2}/{3}/", endpoint.Protocol, host, endpoint.Port, "wsdl/" + rootDir);
+            var address = new EndpointAddress(serviceUri);
+
+            var listener = new WcfCommunicationListener<T>(context, serviceInstance, binding, address); //"ServiceEndpoint");
+            ServiceMetadataBehavior smb = listener.ServiceHost.Description.Behaviors.Find<ServiceMetadataBehavior>();
+            // If not, add one
+            if (smb == null)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                ServiceEventSource.Current.ServiceMessage(this.Context, "Working-{0}", ++iterations);
-                await Task.Delay(TimeSpan.FromSeconds(15), cancellationToken);
+                smb = new ServiceMetadataBehavior();
+                smb.MetadataExporter.PolicyVersion = PolicyVersion.Default;
+                smb.HttpGetEnabled = true;
+                smb.HttpGetUrl = new Uri(serviceUri);
+
+                listener.ServiceHost.Description.Behaviors.Add(smb);
             }
+            return listener;
         }
     }
 }

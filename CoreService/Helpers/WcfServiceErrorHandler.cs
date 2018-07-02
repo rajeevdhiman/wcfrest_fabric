@@ -1,20 +1,16 @@
-﻿using FabricWcf.DependencyInjection;
-using System;
+﻿using System;
 using System.Net;
 using System.Runtime.Serialization;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.ServiceModel.Dispatcher;
-using System.Web;
 
 namespace CoreService.Helpers
 {
-    [DataContract]
     public class WcfServiceErrorHandler : IErrorHandler
     {
-
         /// <summary>
-        /// This method will execute whenever any exception will be thrown from WCF 
+        /// This method will execute whenever any exception will be thrown from WCF
         /// </summary>
         /// <param name="error"></param>
         /// <param name="version"></param>
@@ -47,10 +43,7 @@ namespace CoreService.Helpers
         /// </summary>
         /// <param name="error">Exception raised by the program</param>
         /// <returns></returns>
-        public bool HandleError(Exception error)
-        {
-            // Returning true indicates that an action(behavior) has been taken on the exception thrown.
-            return true;
-        }
+        // Returning true indicates that an action(behavior) has been taken on the exception thrown.
+        public bool HandleError(Exception error) => true;
     }
 }

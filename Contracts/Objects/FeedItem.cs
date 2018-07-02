@@ -1,39 +1,44 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.Serialization;
-using System.ServiceModel.Syndication;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace FabricWcf.ServiceContracts.Objects
+namespace FabricWCF.Common.Objects
 {
     [DataContract]
     public class FeedItem
     {
+        public FeedItem()
+        {
+            Authors = new List<string>();
+            Categories = new List<string>();
+            Contributors = new List<string>();
+            ElementExtensions = new List<string>();
+            Links = new List<string>();
+        }
+
         [DataMember]
-        public IEnumerable<string> Authors { get; set; }
+        public IList<string> Authors { get; set; }
 
         [DataMember]
         public string BaseUri { get; set; }
 
         [DataMember]
-        public IEnumerable<string> Categories { get; set; }
+        public IList<string> Categories { get; set; }
 
         [DataMember]
-        public IEnumerable<string> Contributors { get; set; }
+        public IList<string> Contributors { get; set; }
 
         [DataMember]
         public string Copyright { get; set; }
 
         [DataMember]
-        public IEnumerable<string> ElementExtensions { get; }
+        public IList<string> ElementExtensions { get; }
 
         [DataMember]
         public string Id { get; set; }
 
         [DataMember]
-        public IEnumerable<string> Links { get; set; }
+        public IList<string> Links { get; set; }
 
         [DataMember]
         public DateTime PublishDate { get; set; }

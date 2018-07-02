@@ -1,0 +1,149 @@
+﻿<Window x:Class="Reader.UI.LandingPage"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:System="clr-namespace:System;assembly=mscorlib"
+        xmlns:comObj="clr-namespace:FabricWCF.Common.Objects;assembly=FabricWCF.Common"
+        xmlns:obj="clr-namespace:Reader.Controls.Converters;assembly=Reader.Controls"
+        xmlns:ctrl="clr-namespace:Reader.Controls;assembly=Reader.Controls"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="Auto"
+        mc:Ignorable="d" Title="News Reader" Height="350" Width="525" Icon="Web.ico">
+    <Window.Resources>
+        <ObjectDataProvider x:Key="newsCategories" MethodName="GetValues" ObjectType="{x:Type System:Enum}">
+            <ObjectDataProvider.MethodParameters>
+                <x:Type TypeName="comObj:NewsCategory"/>
+            </ObjectDataProvider.MethodParameters>
+        </ObjectDataProvider>
+        <obj:LocaleInfoConverter x:Key="localeInfoConverter" />
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <Grid Margin="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="3*" />
+            </Grid.ColumnDefinitions>
+            <HeaderedContentControl Name="HeaderedContentControl" Header="{Binding Path=SelectedCategory, Mode=OneWay}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="3" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="3" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ListView Name="ListView" Grid.Row="3" ItemsSource="{Binding Path=Items, IsAsync=True}" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type comObj:FeedItem}">
+                                <Grid Width="{Binding RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ScrollViewer}, Path=ViewportWidth}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Grid.Row="0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" 
+                                       ctrl:TextBlockHelper.Command="{Binding Path=DataContext.NavigateCommand, RelativeSource={RelativeSource AncestorType=Window, Mode=FindAncestor}}"
+                                       ctrl:TextBlockHelper.FormattedText="{Binding Path=Summary, Mode=OneWay}"
+                                       HorizontalAlignment="Stretch" TextWrapping="Wrap" FontSize="9" />
+
+                                        <TextBlock Grid.Column="1" ctrl:TextBlockHelper.FormattedImage="{Binding Summary, Mode=OneWay}"
+                                       HorizontalAlignment="Stretch" TextWrapping="Wrap"/>
+                                    </Grid>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ListView>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="4"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="4"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <ComboBox ItemsSource="{x:Static comObj:LocaleInfo.Locations}" 
+                              SelectedValue="{Binding Path=SelectedLocale, Mode=TwoWay}" Grid.Column="0">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate DataType="{x:Type comObj:LocaleInfo}">
+                                    <TextBlock Text="{Binding Converter={StaticResource localeInfoConverter}}"/>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <GridSplitter Grid.Column="1" Style="{StaticResource vSplit}" />
+
+                        <ComboBox ItemsSource="{Binding Source={StaticResource newsCategories}}" Grid.Column="2" 
+                          SelectedItem="{Binding Path=SelectedCategory, Mode=OneWay}" Name="cbCategory"/>
+
+                        <Button Name="Update" Content="Update" Grid.Column="4" Padding="4,0" CommandParameter="{Binding ElementName=cbCategory, Path=SelectedItem}" 
+                        Command="{Binding Path=UpdateFeedCommand}" />
+                    </Grid>
+                </Grid>
+            </HeaderedContentControl>
+            <GridSplitter Grid.Column="1" Style="{StaticResource vSplit}"  />
+            <HeaderedContentControl Grid.Column="2" x:Name="browserPane" Header="Blank Page">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="30"/> 
+                        <RowDefinition Height="Auto"/> 
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <ctrl:SearchControl Grid.Row="1" HorizontalAlignment="Right" Visibility="{Binding Path=IsNavigated,Converter={StaticResource boolVisibility}}"/>
+                    <ctrl:SearchControl Grid.Row="3"  />
+                    <WebBrowser Grid.Row="3" ctrl:WebBrowserHelper.SourceUri="{Binding Path=DocumentUri, Mode=OneWay}" Name="wb"
+                    LoadCompleted="wb_LoadCompleted" Visibility="{Binding Path=IsNavigated,Converter={StaticResource boolVisibility}}"/>
+                </Grid>
+            </HeaderedContentControl>
+        </Grid>
+        <StatusBar Grid.Row="1" Height="23" Background="#FF007ACC" Focusable="False">
+            <StatusBar.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                            <ColumnDefinition Width="125"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="125" />
+                        </Grid.ColumnDefinitions>
+                    </Grid>
+                </ItemsPanelTemplate>
+            </StatusBar.ItemsPanel>
+            <StatusBar.Resources>
+                <Style TargetType="{x:Type StatusBarItem}">
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="TextBlock.Foreground" Value="White" />
+                    <Setter Property="Focusable"  Value="False"/>
+                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                </Style>
+            </StatusBar.Resources>
+            <StatusBarItem Grid.Column="0">
+                <TextBlock Text="{Binding Path=StatusText}"/>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="1">
+                <ProgressBar Name="pgbIsBusy" IsIndeterminate="True" 
+                             Visibility="{Binding Path=IsBusy, Converter={StaticResource boolVisibility}}"/>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="2">
+                <CheckBox Content="Auto Refresh" TextBlock.Foreground="White" VerticalAlignment="Center" Focusable="False"
+                          ToolTip="Check to update news feed every 15 minutes" IsChecked="{Binding Path=AutoRefresh ,Mode=TwoWay}"/>
+            </StatusBarItem>
+            <StatusBarItem Grid.Column="3">
+                <Slider  Width="120" Name="slider1" Maximum="1.5"  Minimum="1" Focusable="False"
+                         PreviewMouseDown="slider1_PreviewMouseDown" PreviewMouseWheel="slider1_PreviewMouseWheel"  
+                         TickFrequency="0.5"  TickPlacement="BottomRight" ValueChanged="slider1_ValueChanged"  
+                         Value="{Binding ElementName=ListView, Path=LayoutTransform.ScaleX,  Mode=OneWay}" />
+            </StatusBarItem>
+        </StatusBar>
+    </Grid>
+</Window>

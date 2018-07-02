@@ -1,17 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.ServiceModel;
 using System.ServiceModel.Channels;
 using System.ServiceModel.Description;
 using System.ServiceModel.Dispatcher;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace CoreService.Helpers
 {
-    public  class ServiceErrorBehaviorAttribute : Attribute, IServiceBehavior
+    public class ServiceErrorBehaviorAttribute : Attribute, IServiceBehavior
     {
         private readonly Type _errorHandlerType;
 

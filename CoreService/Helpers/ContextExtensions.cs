@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using FabricWCF.Common.Objects;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.ServiceModel;
@@ -8,8 +9,11 @@ namespace CoreService
 {
     public static class ContextExtensions
     {
-        public static IEnumerable<string> Headers(this OperationContext context)
+        public static IEnumerable<HttpHeader> Headers(this OperationContext context)
         {
+            if (context?.RequestContext == null)
+                yield break;
+
             Message requestMessage = context.RequestContext.RequestMessage;
             HttpRequestMessageProperty httpRequestMessageProperty =
                 requestMessage.Properties.Values.OfType<HttpRequestMessageProperty>().FirstOrDefault();
@@ -20,14 +24,14 @@ namespace CoreService
 
                 foreach (string header in httpHeaders.Keys)
                 {
-                    yield return string.Format("{0}: {1}", header, httpHeaders[header]);
+                    yield return new HttpHeader { Name = header, Value = httpHeaders.Get(header) };
                 }
             }
         }
 
         public static string GetClientIP(this OperationContext context)
         {
-            if (context.IncomingMessageProperties == null)
+            if (context?.IncomingMessageProperties == null)
                 return string.Empty;
 
             MessageProperties props = context.IncomingMessageProperties;
